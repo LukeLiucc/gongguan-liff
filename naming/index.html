@@ -416,9 +416,8 @@ const STORE_WRITE="https://textdb.online/update/";
 async function storeFetch(){const g=await fetch(STORE_READ,{cache:"no-store"});const t=(await g.text()).trim();
   if(!t)return{names:{},areas:{}};try{const j=JSON.parse(t);return{names:j.names||{},areas:j.areas||{}}}catch(e){return{names:{},areas:{}}}}
 async function storeWrite(doc){const v=JSON.stringify(doc);
-  let r=await fetch(STORE_WRITE,{method:"POST",body:new URLSearchParams({key:STORE_KEY,value:v})});
-  if(!r.ok)r=await fetch(STORE_WRITE+"?key="+STORE_KEY+"&value="+encodeURIComponent(v));
-  return r.ok}
+  try{const r=await fetch(STORE_WRITE,{method:"POST",body:new URLSearchParams({key:STORE_KEY,value:v})});if(r.ok)return true}catch(e){}
+  try{const r2=await fetch(STORE_WRITE+"?key="+STORE_KEY+"&value="+encodeURIComponent(v));return r2.ok}catch(e){return false}}
 let storeBusy=false;
 async function pushMut(mut,cb){try{
   while(storeBusy){await new Promise(r=>setTimeout(r,150))}
@@ -486,9 +485,9 @@ function applyRemote(){
 async function storeLoad(){try{
   const d=await storeFetch();
   if(!Object.keys(d.names).length&&!Object.keys(d.areas).length&&!storeLoad.seeded){
-    storeLoad.seeded=true;
     const seed={names:{f1:{final:"賽車模擬器",pick:""},f5:{final:"摩托賽車模擬器",pick:""}},areas:{"area-0-1":{final:"運動檢測站"}}};
-    await storeWrite(seed);applyStore(seed);return;
+    if(await storeWrite(seed)){storeLoad.seeded=true;applyStore(seed)}
+    return;
   }
   applyStore(d);
 }catch(e){}}
