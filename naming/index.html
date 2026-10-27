@@ -165,6 +165,7 @@ footer a{color:var(--muted)}
   <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <button id="copyAll" type="button" style="font:inherit;font-size:14px;font-weight:700;border:0;border-radius:8px;background:var(--brand);color:#fff;padding:10px 18px;cursor:pointer">複製填寫結果</button>
     <span id="copyStat" style="font-size:13px;color:var(--muted)">填完各欄位後按此複製，貼到 LINE 回傳即可</span>
+    <span id="storeStat" style="font-size:13px;color:var(--muted)">雲端儲存：連線中…</span>
   </div>
 </header>
 
@@ -482,15 +483,18 @@ function applyRemote(){
   document.querySelectorAll(".finalrow input[data-fid]").forEach(i=>{if(document.activeElement!==i)i.value=finals[i.dataset.fid]||""});
   if(!inputFocused())render();
 }
+function stat(t){const e=document.getElementById("storeStat");if(e)e.textContent=t}
 async function storeLoad(){try{
   const d=await storeFetch();
+  stat("雲端儲存：已連線（設施 "+Object.keys(d.names).length+" 筆／區域 "+Object.keys(d.areas).length+" 筆）");
   if(!Object.keys(d.names).length&&!Object.keys(d.areas).length&&!storeLoad.seeded){
     const seed={names:{f1:{final:"賽車模擬器",pick:""},f5:{final:"摩托賽車模擬器",pick:""}},areas:{"area-0-1":{final:"運動檢測站"}}};
-    if(await storeWrite(seed)){storeLoad.seeded=true;applyStore(seed)}
+    if(await storeWrite(seed)){storeLoad.seeded=true;applyStore(seed);stat("雲端儲存：已連線（初始化完成）")}
+    else stat("雲端儲存：寫入失敗");
     return;
   }
   applyStore(d);
-}catch(e){}}
+}catch(e){stat("雲端儲存：連線失敗 "+String(e).slice(0,60))}}
 storeLoad(); setInterval(storeLoad,30000);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const isArena=d=>d.v2.en!==""&&!d.v2.n.includes(d.v1.s);
