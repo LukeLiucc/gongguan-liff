@@ -410,15 +410,34 @@ const D=[
  r:["採預約制，請換上館方雪靴、雪板與護具", "全程依教練指示，勿自行調整坡度與速度", "跌倒時依教練示範方式側倒", "散客每時段 2–4 人"],
  note:"雪靴尺寸 17.5–28.5 公分，含兒童尺寸。"}
 ];
-const GAS_URL="";/* ←部署 GAS 後貼上 /exec 網址 */
+const STORE_KEY="gongguan_naming_main_7f3k2q";
+const STORE_READ="https://textdb.online/"+STORE_KEY;
+const STORE_WRITE="https://textdb.online/update/";
+async function storeFetch(){const g=await fetch(STORE_READ,{cache:"no-store"});const t=(await g.text()).trim();
+  if(!t)return{names:{},areas:{}};try{const j=JSON.parse(t);return{names:j.names||{},areas:j.areas||{}}}catch(e){return{names:{},areas:{}}}}
+async function storeWrite(doc){const v=JSON.stringify(doc);
+  let r=await fetch(STORE_WRITE,{method:"POST",body:new URLSearchParams({key:STORE_KEY,value:v})});
+  if(!r.ok)r=await fetch(STORE_WRITE+"?key="+STORE_KEY+"&value="+encodeURIComponent(v));
+  return r.ok}
+let storeBusy=false;
+async function pushMut(mut,cb){try{
+  while(storeBusy){await new Promise(r=>setTimeout(r,150))}
+  storeBusy=true;
+  const doc=await storeFetch();mut(doc);const ok=await storeWrite(doc);
+  if(ok)applyStore(doc);
+  storeBusy=false;cb&&cb(ok);
+}catch(e){storeBusy=false;cb&&cb(false)}}
+function applyStore(d){picks={};finals={};areas={};
+  Object.entries(d.names||{}).forEach(([k,v])=>{picks[k]=v.pick||"";finals[k]=v.final||""});
+  Object.entries(d.areas||{}).forEach(([k,v])=>{areas[k]=(v&&v.final)||""});
+  dbh=true;applyRemote();applyAreas();}
 const KEY="gg-facility-picks-v3",KEYF="gg-facility-finals-v1",KEYA="gg-area-finals-v1";
 let picks={},finals={},areas={},dbh=null;
 try{picks=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){picks={}}
 try{finals=JSON.parse(localStorage.getItem(KEYF)||"{}")}catch(e){finals={}}
 try{areas=JSON.parse(localStorage.getItem(KEYA)||"{}")}catch(e){areas={}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(picks));localStorage.setItem(KEYF,JSON.stringify(finals));localStorage.setItem(KEYA,JSON.stringify(areas))}catch(e){}}
-function pushArea(id,cb){if(!GAS_URL)return cb&&cb(true);
-  fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({col:"areas",id:id,final:areas[id]||""})}).then(r=>r.json()).then(()=>cb&&cb(true)).catch(()=>cb&&cb(false))}
+function pushArea(id,cb){const v=areas[id]||"";pushMut(d=>{d.areas=d.areas||{};d.areas[id]={final:v}},cb)}
 function applyAreas(){document.querySelectorAll(".arearow input").forEach(i=>{if(document.activeElement!==i)i.value=areas[i.dataset.aid]||""})}
 function initAreaInputs(){
   document.querySelectorAll(".fp").forEach((fp,fi)=>{
@@ -458,21 +477,22 @@ document.getElementById("copyAll").addEventListener("click",async()=>{
     try{document.execCommand("copy"); st.textContent="已複製，貼到 LINE 或訊息回傳即可";}catch(e2){st.textContent="複製失敗，請手動選取";}
     ta.remove();}
 });
-function pushDoc(id,cb){if(!GAS_URL)return cb&&cb(true);
-  fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({col:"names",id:id,final:finals[id]||"",pick:picks[id]||""})}).then(r=>r.json()).then(()=>cb&&cb(true)).catch(()=>cb&&cb(false))}
+function pushDoc(id,cb){const f=finals[id]||"",p=picks[id]||"";pushMut(d=>{d.names=d.names||{};d.names[id]={final:f,pick:p}},cb)}
 function inputFocused(){const a=document.activeElement;return a&&a.matches&&a.matches(".finalrow input")}
 function applyRemote(){
   document.querySelectorAll(".finalrow input[data-fid]").forEach(i=>{if(document.activeElement!==i)i.value=finals[i.dataset.fid]||""});
   if(!inputFocused())render();
 }
-async function gasLoad(){if(!GAS_URL)return;
-  try{const r=await fetch(GAS_URL+"?t="+Date.now());const d=await r.json();
-    picks={};finals={};areas={};
-    Object.entries(d.names||{}).forEach(([k,v])=>{picks[k]=v.pick||"";finals[k]=v.final||""});
-    Object.entries(d.areas||{}).forEach(([k,v])=>{areas[k]=v.final||""});
-    dbh=true; applyRemote(); applyAreas();
-  }catch(e){}}
-gasLoad(); setInterval(gasLoad,30000);
+async function storeLoad(){try{
+  const d=await storeFetch();
+  if(!Object.keys(d.names).length&&!Object.keys(d.areas).length&&!storeLoad.seeded){
+    storeLoad.seeded=true;
+    const seed={names:{f1:{final:"賽車模擬器",pick:""},f5:{final:"摩托賽車模擬器",pick:""}},areas:{"area-0-1":{final:"運動檢測站"}}};
+    await storeWrite(seed);applyStore(seed);return;
+  }
+  applyStore(d);
+}catch(e){}}
+storeLoad(); setInterval(storeLoad,30000);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const isArena=d=>d.v2.en!==""&&!d.v2.n.includes(d.v1.s);
 function v2txt(d){return d.v2.en?`<span class="en">${esc(d.v2.en)}</span><b>${esc(d.v2.n)}</b>${isArena(d)?`<span>${esc(d.v1.s)}</span>`:""}`:`<b>${esc(d.v2.n)}</b>`}
