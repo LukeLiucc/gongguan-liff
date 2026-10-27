@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>init</title></head>
+<body style="font-family:monospace;font-size:20px;padding:30px">
+<div id="out">建立共用儲存空間中…</div>
+<script>
+(async()=>{
+  const out=document.getElementById("out");
+  const seed={names:{f1:{final:"賽車模擬器",pick:""},f5:{final:"摩托賽車模擬器",pick:""}},areas:{"area-0-1":{final:"運動檢測站"}},_created:new Date().toISOString()};
+  try{
+    const r=await fetch("https://jsonblob.com/api/jsonBlob",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(seed)});
+    const loc=r.headers.get("Location")||r.headers.get("location")||"";
+    let id=(loc.match(/jsonBlob\/([A-Za-z0-9-]+)/)||[])[1]||"";
+    if(!id){ out.textContent="ERROR no-location status="+r.status; return; }
+    const url="https://jsonblob.com/api/jsonBlob/"+id;
+    // round-trip test: update then read
+    seed._rw=Date.now();
+    const p=await fetch(url,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(seed)});
+    const g=await fetch(url); const j=await g.json();
+    const ok=(j&&j._rw===seed._rw)?"RW:OK":"RW:FAIL";
+    out.textContent="BLOBID:"+id+" | "+ok+" | put="+p.status+" get="+g.status;
+  }catch(e){ out.textContent="ERROR "+String(e); }
+})();
+</script></body></html>
