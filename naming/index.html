@@ -162,6 +162,10 @@ footer a{color:var(--muted)}
   <div class="eyebrow">Gongguan Sports Center · Facility naming</div>
   <h1>公館運動館 命名總表</h1>
   <div class="meta">全館區域與設施命名對照｜聯新國際體育股份有限公司｜2026 年 10 月 27 日</div>
+  <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <button id="copyAll" type="button" style="font:inherit;font-size:14px;font-weight:700;border:0;border-radius:8px;background:var(--brand);color:#fff;padding:10px 18px;cursor:pointer">複製填寫結果</button>
+    <span id="copyStat" style="font-size:13px;color:var(--muted)">填完各欄位後按此複製，貼到 LINE 回傳即可</span>
+  </div>
 </header>
 
 <section class="block">
@@ -433,6 +437,27 @@ function initAreaInputs(){
   applyAreas();
 }
 initAreaInputs();
+function collectFills(){
+  const L=["公館運動館 命名總表 填寫結果 "+new Date().toLocaleString("zh-TW")];
+  document.querySelectorAll(".finalrow input[data-fid]").forEach(i=>{finals[i.dataset.fid]=i.value.trim()||finals[i.dataset.fid]||""});
+  D.forEach(d=>{const f=(finals[d.id]||"").trim(),pk=picks[d.id]||"";
+    if(f||pk)L.push("[設施] "+d.pos+"｜"+d.v1.n+"："+(f||"（未填名稱）")+(pk?("（採用第"+(pk==="1"?"一":"二")+"版）"):""))});
+  document.querySelectorAll(".arearow input[data-aid]").forEach(i=>{
+    const v=i.value.trim(); if(!v)return;
+    let label=""; const tr=i.closest("tr");
+    if(tr){const o=tr.querySelector(".old2"); label=o?o.textContent.trim():""}
+    else{const h=i.closest(".fphead"); if(h){const o=h.querySelector("b"); label=o?o.textContent.trim():""}}
+    L.push("[區域] "+label+"："+v)});
+  if(L.length===1)L.push("（尚未填寫任何欄位）");
+  return L.join("\n");
+}
+document.getElementById("copyAll").addEventListener("click",async()=>{
+  const t=collectFills(); const st=document.getElementById("copyStat");
+  try{await navigator.clipboard.writeText(t); st.textContent="已複製，貼到 LINE 或訊息回傳即可";}
+  catch(e){const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select();
+    try{document.execCommand("copy"); st.textContent="已複製，貼到 LINE 或訊息回傳即可";}catch(e2){st.textContent="複製失敗，請手動選取";}
+    ta.remove();}
+});
 function pushDoc(id,cb){if(!GAS_URL)return cb&&cb(true);
   fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({col:"names",id:id,final:finals[id]||"",pick:picks[id]||""})}).then(r=>r.json()).then(()=>cb&&cb(true)).catch(()=>cb&&cb(false))}
 function inputFocused(){const a=document.activeElement;return a&&a.matches&&a.matches(".finalrow input")}
