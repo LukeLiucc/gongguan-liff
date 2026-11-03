@@ -119,6 +119,10 @@ td.na .en{font-family:var(--f-mono);font-size:12px;color:var(--b);display:block;
 .arearow{margin-top:8px}
 .arearow input{min-width:140px;font-size:13px;padding:5px 8px}
 .arearow button{padding:6px 12px;font-size:12px}
+.notesrow{align-items:flex-start}
+.notesrow textarea{flex:1;min-width:220px;min-height:68px;font:inherit;font-size:13px;line-height:1.6;color:var(--ink);background:var(--warn-soft);border:1px solid var(--line);border-radius:6px;padding:8px 10px;resize:vertical}
+.notesrow textarea:focus{outline:2px solid var(--brand);outline-offset:-1px}
+.notesrow label{color:var(--warn)}
 td .decided{margin-top:6px;font-size:13px;font-weight:700;color:var(--pick)}
 .mockrow{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin:14px 0}
 @media(max-width:760px){.mockrow{grid-template-columns:minmax(0,1fr)}}
@@ -400,12 +404,12 @@ async function pushMut(mut,cb){try{
   if(ok)applyStore(doc);
   storeBusy=false;cb&&cb(ok);
 }catch(e){storeBusy=false;cb&&cb(false)}}
-function applyStore(d){picks={};finals={};areas={};
-  Object.entries(d.names||{}).forEach(([k,v])=>{picks[k]=v.pick||"";finals[k]=v.final||""});
+function applyStore(d){picks={};finals={};areas={};notes={};
+  Object.entries(d.names||{}).forEach(([k,v])=>{picks[k]=v.pick||"";finals[k]=v.final||"";notes[k]=v.note||""});
   Object.entries(d.areas||{}).forEach(([k,v])=>{areas[k]=(v&&v.final)||""});
   dbh=true;applyRemote();applyAreas();}
 const KEY="gg-facility-picks-v3",KEYF="gg-facility-finals-v1",KEYA="gg-area-finals-v1";
-let picks={},finals={},areas={},dbh=null;
+let picks={},finals={},areas={},notes={},dbh=null;
 try{picks=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){picks={}}
 try{finals=JSON.parse(localStorage.getItem(KEYF)||"{}")}catch(e){finals={}}
 try{areas=JSON.parse(localStorage.getItem(KEYA)||"{}")}catch(e){areas={}}
@@ -433,7 +437,10 @@ function collectFills(){
   const L=["公館運動館 命名總表 填寫結果 "+new Date().toLocaleString("zh-TW")];
   document.querySelectorAll(".finalrow input[data-fid]").forEach(i=>{finals[i.dataset.fid]=i.value.trim()||finals[i.dataset.fid]||""});
   D.forEach(d=>{const f=(finals[d.id]||"").trim(),pk=picks[d.id]||"";
-    if(f||pk)L.push("[設施] "+d.pos+"｜"+d.v1.n+"："+(f||"（未填名稱）")+(pk?("（採用第"+(pk==="1"?"一":"二")+"版）"):""))});
+    const nt=(notes[d.id]||"").trim();
+    if(f||pk||nt){let line="[設施] "+d.pos+"｜"+d.v1.n+"："+(f||"（未填名稱）")+(pk?("（採用第"+(pk==="1"?"一":"二")+"版）"):"");
+      if(nt)line+="\n　說明修改："+nt;
+      L.push(line)}});
   document.querySelectorAll(".arearow input[data-aid]").forEach(i=>{
     const v=i.value.trim(); if(!v)return;
     let label=""; const tr=i.closest("tr");
@@ -450,10 +457,11 @@ document.getElementById("copyAll").addEventListener("click",async()=>{
     try{document.execCommand("copy"); st.textContent="已複製，貼到 LINE 或訊息回傳即可";}catch(e2){st.textContent="複製失敗，請手動選取";}
     ta.remove();}
 });
-function pushDoc(id,cb){const f=finals[id]||"",p=picks[id]||"";pushMut(d=>{d.names=d.names||{};d.names[id]={final:f,pick:p}},cb)}
-function inputFocused(){const a=document.activeElement;return a&&a.matches&&a.matches(".finalrow input")}
+function pushDoc(id,cb){const f=finals[id]||"",p=picks[id]||"",n=notes[id]||"";pushMut(d=>{d.names=d.names||{};d.names[id]={final:f,pick:p,note:n}},cb)}
+function inputFocused(){const a=document.activeElement;return a&&a.matches&&a.matches(".finalrow input, .finalrow textarea")}
 function applyRemote(){
   document.querySelectorAll(".finalrow input[data-fid]").forEach(i=>{if(document.activeElement!==i)i.value=finals[i.dataset.fid]||""});
+  document.querySelectorAll("textarea[data-nid]").forEach(t=>{if(document.activeElement!==t)t.value=notes[t.dataset.nid]||""});
   if(!inputFocused())render();
 }
 function stat(t){const e=document.getElementById("storeStat");if(e)e.textContent=t}
@@ -506,6 +514,7 @@ function render(){
       <div class="note"><b>備註</b>　${esc(d.note)}</div>
       ${d.check?`<div class="check">${esc(d.check)}</div>`:""}
       <div class="finalrow"><label>決議名稱</label><input data-fid="${d.id}" value="${esc(finals[d.id]||"")}" placeholder="直接輸入定案名稱後按儲存"><button type="button" data-savef="${d.id}">儲存</button><span class="fstat"></span></div>
+      <div class="finalrow notesrow"><label>說明修改</label><textarea data-nid="${d.id}" placeholder="介紹、使用須知、操作說明的文字要改，直接把改後文字或意見打在這，按儲存，所有人都看得到">${esc(notes[d.id]||"")}</textarea><button type="button" data-saven="${d.id}">儲存</button><span class="fstat"></span></div>
     </div></article>`}).join("");
   const a=D.filter(d=>picks[d.id]==="1").length,b=D.filter(d=>picks[d.id]==="2").length;
   document.getElementById("tally").textContent=`已勾選 ${a+b}／${D.length} 項：第一版 ${a} 項，第二版 ${b} 項（${dbh?"勾選與名稱即時共享，所有開啟者都看得到，免登入":"尚未連接儲存後端，目前僅存在你自己的瀏覽器"}）`;
@@ -517,6 +526,12 @@ document.addEventListener("click",e=>{
     const st=document.getElementById("ast-"+id); if(st)st.textContent="儲存中…";
     pushArea(id,ok=>{const st2=document.getElementById("ast-"+id);
       if(st2)st2.textContent=ok?(dbh?"已儲存（所有人可見）":"已儲存在此瀏覽器"):"沒有寫入權限，請用有編輯權限的帳號"});
+    return}
+  const sn=e.target.closest("button[data-saven]");
+  if(sn){const id=sn.dataset.saven;const row=sn.closest(".finalrow");const ta=row&&row.querySelector("textarea");
+    notes[id]=(ta&&ta.value.trim())||"";
+    const st=row&&row.querySelector(".fstat"); if(st)st.textContent="儲存中…";
+    pushDoc(id,ok=>{if(st)st.textContent=ok?"已儲存（所有人可見）":"儲存失敗，請再按一次"});
     return}
   const sv=e.target.closest("button[data-savef]");
   if(sv){const id=sv.dataset.savef;const row=sv.closest(".finalrow");const inp=row&&row.querySelector("input");
